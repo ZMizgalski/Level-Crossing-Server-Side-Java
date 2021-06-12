@@ -23,11 +23,10 @@ import java.util.Scanner;
 public class ObjectDetectionService {
 
     @SneakyThrows
-    public static void runDetection() {
+    public static void runDetection(VideoCapture capture) {
         Mat frame = new Mat();
-        VideoCapture camera = new VideoCapture(0);
-        double width = camera.get(Videoio.CAP_PROP_FRAME_WIDTH);
-        double height = camera.get(Videoio.CAP_PROP_FRAME_HEIGHT);
+        double width = capture.get(Videoio.CAP_PROP_FRAME_WIDTH);
+        double height = capture.get(Videoio.CAP_PROP_FRAME_HEIGHT);
         float confThreshold = 0.15f;
         float maxThreshold = 0.2f;
         List<String> detectedObjectsNames = loadCocoNamesFromFile(new ClassPathResource("deepLerningModels/coco.names").getFile());
@@ -43,7 +42,7 @@ public class ObjectDetectionService {
         jframe.setSize((int) width, (int) height);
         jframe.setVisible(true);
         while (true) {
-            if (camera.read(frame)) {
+            if (capture.read(frame)) {
                 ImageIcon image = new ImageIcon(Mat2BufferedImage(onCameraFrame(frame, net, maxThreshold, confThreshold, detectedObjectsNames)));
                 vidPanel.setIcon(image);
                 vidPanel.repaint();

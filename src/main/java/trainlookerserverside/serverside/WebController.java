@@ -5,6 +5,7 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.apache.commons.io.FileUtils;
+import org.opencv.videoio.VideoCapture;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -13,17 +14,16 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import trainlookerserverside.serverside.DTOS.ChangeMotorDirectionDTO;
 import trainlookerserverside.serverside.DTOS.RegisterNewLevelCrossingDTO;
+import trainlookerserverside.serverside.objectdetection.ObjectDetectionService;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 
 @Slf4j
 @RestController
@@ -97,8 +97,6 @@ public class WebController {
         }
     }
 
-    @GetMapping("/")
-
     @SneakyThrows
     @RequestMapping("/server-stream/{id}")
     @ResponseBody
@@ -111,8 +109,9 @@ public class WebController {
         RestTemplate restTemplate = new RestTemplate();
         String url = levelCrossingAddress + "/streamCamera/" + id;
         ResponseEntity<Resource> responseEntity = restTemplate.exchange(url, HttpMethod.POST, null, Resource.class);
+        FileUtils.copyInputStreamToFile(Objects.requireNonNull(responseEntity.getBody()).getInputStream(), new File("videos/" + id + ".mp4"));
+        ObjectDetectionService.runDetection(new VideoCapture("videos/" + id + ".mp4"));
         InputStream st = Objects.requireNonNull(responseEntity.getBody()).getInputStream();
-        FileUtils.copyInputStreamToFile(st, new File("videos/" + id + ".mp4"));
         return (os) -> readAndWrite(st, os);
     }
 
