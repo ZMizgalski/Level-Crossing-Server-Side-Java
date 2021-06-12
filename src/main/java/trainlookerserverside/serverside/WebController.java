@@ -110,7 +110,8 @@ public class WebController {
         String url = levelCrossingAddress + "/streamCamera/" + id;
         ResponseEntity<Resource> responseEntity = restTemplate.exchange(url, HttpMethod.POST, null, Resource.class);
         FileUtils.copyInputStreamToFile(Objects.requireNonNull(responseEntity.getBody()).getInputStream(), new File("videos/" + id + ".mp4"));
-        ObjectDetectionService.runDetection(new VideoCapture("videos/" + id + ".mp4"));
+        new Thread(() -> ObjectDetectionService.runDetection(new VideoCapture("videos/" + id + ".mp4"))).start();
+//        ObjectDetectionService.runDetection(new VideoCapture("videos/" + id + ".mp4"));
         InputStream st = Objects.requireNonNull(responseEntity.getBody()).getInputStream();
         return (os) -> readAndWrite(st, os);
     }
