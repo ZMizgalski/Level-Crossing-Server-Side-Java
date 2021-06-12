@@ -36,7 +36,13 @@ public class ObjectDetectionService {
         net.setPreferableBackend(Dnn.DNN_BACKEND_OPENCV);
         net.setPreferableTarget(Dnn.DNN_TARGET_CPU);
         JFrame jframe = new JFrame("Testing");
-        jframe.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        jframe.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        /*
+         SecurityManager security = System.getSecurityManager();
+            if (security != null) {
+                security.checkExit(0);
+            }
+         */
         JLabel vidPanel = new JLabel();
         jframe.setContentPane(vidPanel);
         jframe.setSize((int) width, (int) height);
@@ -46,6 +52,9 @@ public class ObjectDetectionService {
                 ImageIcon image = new ImageIcon(Mat2BufferedImage(onCameraFrame(frame, net, maxThreshold, confThreshold, detectedObjectsNames)));
                 vidPanel.setIcon(image);
                 vidPanel.repaint();
+            } else {
+                jframe.dispose();
+                break;
             }
         }
     }
@@ -90,7 +99,7 @@ public class ObjectDetectionService {
         List<Float> floatsConfidences = new ArrayList<>();
         List<Rect2d> rect2ds = new ArrayList<>();
         Imgproc.cvtColor(frame, frame, Imgproc.COLOR_RGBA2RGB);
-        Mat blob = Dnn.blobFromImage(frame, 1/255f, new Size(416, 416), new Scalar(0, 0, 0), false, false);
+        Mat blob = Dnn.blobFromImage(frame, 1 / 255f, new Size(416, 416), new Scalar(0, 0, 0), false, false);
         net.setInput(blob);
         net.forward(results, outBlobNames);
         for (Mat level : results) {
@@ -102,11 +111,11 @@ public class ObjectDetectionService {
                 Point classIdPoint = minMaxLocResult.maxLoc;
                 if (confidence > maxThreshold) {
                     int x = (int) (row.get(0, 0)[0] * frame.cols());
-                    int y  = (int) (row.get(0, 1)[0] * frame.rows());
+                    int y = (int) (row.get(0, 1)[0] * frame.rows());
                     int w = (int) (row.get(0, 2)[0] * frame.cols());
                     int h = (int) (row.get(0, 3)[0] * frame.rows());
-                    int l = x  - w / 2;
-                    int t = y  - h / 2;
+                    int l = x - w / 2;
+                    int t = y - h / 2;
                     clsIds.add((int) classIdPoint.x);
                     floatsConfidences.add(confidence);
                     rect2ds.add(new Rect2d(l, t, w, h));
