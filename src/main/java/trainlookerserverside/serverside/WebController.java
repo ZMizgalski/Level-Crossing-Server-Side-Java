@@ -4,9 +4,7 @@ import lombok.Getter;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
-import org.opencv.core.Mat;
-import org.opencv.imgcodecs.Imgcodecs;
-import org.opencv.videoio.VideoCapture;
+import org.apache.commons.io.FileUtils;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -16,13 +14,16 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
 import trainlookerserverside.serverside.DTOS.ChangeMotorDirectionDTO;
 import trainlookerserverside.serverside.DTOS.RegisterNewLevelCrossingDTO;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 
 @Slf4j
 @RestController
@@ -44,15 +45,6 @@ public class WebController {
         }
         levelCrossingIps.put(id, registerNewLevelCrossingDTO.getLevelCrossingIP());
         log.warn(String.format("New levelCrossing registered as: %s", registerNewLevelCrossingDTO.getLevelCrossingIP()));
-    }
-
-    @PostMapping(value = "/takePicture")
-    public ResponseEntity<?> takePic() {
-        VideoCapture videoCapture = new VideoCapture(0);
-        Mat frame = new Mat();
-        videoCapture.read(frame);
-        Imgcodecs.imwrite("DetectedObject.jpg",frame);
-        return ResponseEntity.ok().body("Picture taken");
     }
 
     @PostMapping(value = "/registerNewLevelCrossing")
@@ -86,7 +78,7 @@ public class WebController {
             makeMotorChangeRequest("/closeLevelCrossing", id, levelCrossingAddress);
         }
 
-        return ResponseEntity.ok().body(String.format("LevelCrossing motors with id: %s switched to: %s", id.toString(),  motorValue));
+        return ResponseEntity.ok().body(String.format("LevelCrossing motors with id: %s switched to: %s", id.toString(), motorValue));
     }
 
     private void makeMotorChangeRequest(String httpRequest, UUID id, String address) {
@@ -105,18 +97,22 @@ public class WebController {
         }
     }
 
+    @GetMapping("/")
+
     @SneakyThrows
     @RequestMapping("/server-stream/{id}")
     @ResponseBody
     public StreamingResponseBody getSecuredHttpStream(@PathVariable String id) {
         val levelCrossingAddress = levelCrossingIps.get(UUID.fromString(id));
         if (levelCrossingAddress == null) {
-            return outputStream -> { };
+            return outputStream -> {
+            };
         }
         RestTemplate restTemplate = new RestTemplate();
         String url = levelCrossingAddress + "/streamCamera/" + id;
         ResponseEntity<Resource> responseEntity = restTemplate.exchange(url, HttpMethod.POST, null, Resource.class);
         InputStream st = Objects.requireNonNull(responseEntity.getBody()).getInputStream();
+        FileUtils.copyInputStreamToFile(st, new File("videos/" + id + ".mp4"));
         return (os) -> readAndWrite(st, os);
     }
 
