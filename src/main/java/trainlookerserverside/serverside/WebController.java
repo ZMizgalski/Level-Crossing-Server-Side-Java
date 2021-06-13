@@ -1,5 +1,7 @@
 package trainlookerserverside.serverside;
 
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Multimap;
 import lombok.Getter;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -12,18 +14,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
-import trainlookerserverside.serverside.DTOS.ChangeMotorDirectionDTO;
-import trainlookerserverside.serverside.DTOS.RegisterNewLevelCrossingDTO;
+import trainlookerserverside.serverside.DTOS.*;
 import trainlookerserverside.serverside.objectdetection.ObjectDetectionService;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
+import java.util.regex.Pattern;
 
 @Slf4j
 @RestController
@@ -31,8 +30,18 @@ import java.util.UUID;
 @RequestMapping(value = "/api/server")
 public class WebController {
 
+    private final static Pattern UUID_REGEX_PATTERN = Pattern.compile("^[{]?[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}[}]?$");
     @Getter
     private final Map<UUID, String> levelCrossingIps = new HashMap<>();
+    @Getter
+    private final Multimap<UUID, AreaDataDTO> selectedAreas = ArrayListMultimap.create();
+
+    public static boolean isValidUUID(String str) {
+        if (str == null) {
+            return false;
+        }
+        return UUID_REGEX_PATTERN.matcher(str).matches();
+    }
 
     private void addNewLevelCrossing(RegisterNewLevelCrossingDTO registerNewLevelCrossingDTO) {
         val id = UUID.fromString(registerNewLevelCrossingDTO.getId());
@@ -45,6 +54,48 @@ public class WebController {
         }
         levelCrossingIps.put(id, registerNewLevelCrossingDTO.getLevelCrossingIP());
         log.warn(String.format("New levelCrossing registered as: %s", registerNewLevelCrossingDTO.getLevelCrossingIP()));
+    }
+
+    @DeleteMapping(value = "/deleteArea")
+    public ResponseEntity<?> deleteArea(@RequestBody DeleteAreaDTO deleteAreaDTO) {
+        if (!isValidUUID(deleteAreaDTO.getId())) {
+            return ResponseEntity.badRequest().body(String.format("Invalid id: %s", deleteAreaDTO.getId()));
+        }
+        Collection<AreaDataDTO> areas = selectedAreas.get(UUID.fromString(deleteAreaDTO.getId()));
+        if (areas.isEmpty()) {
+            return ResponseEntity.badRequest().body(String.format("Area with level crossing id: %s not exists", deleteAreaDTO.getId()));
+        }
+        AreaDataDTO area = areas.parallelStream().filter(s -> s.getAreaName().equals(deleteAreaDTO.getAreaName())).findFirst().orElse(null);
+        selectedAreas.remove(UUID.fromString(deleteAreaDTO.getId()), area);
+        return ResponseEntity.ok().body(String.format("Area with id: %s and name: %s has ben deleted", deleteAreaDTO.getId(), deleteAreaDTO.getAreaName()));
+    }
+
+    @GetMapping(value = "/getAllAreasById/{id}")
+    public ResponseEntity<?> getAllAreas(@PathVariable String id) {
+        Collection<AreaDataDTO> areas = selectedAreas.get(UUID.fromString(id));
+        return ResponseEntity.ok().body(areas);
+    }
+
+    @PostMapping(value = "/setArea")
+    public ResponseEntity<?> setArea(@RequestBody SetAreaDTO areaDTO) {
+        if (!isValidUUID(areaDTO.getId())) {
+            return ResponseEntity.badRequest().body(String.format("Invalid id: %s", areaDTO.getId()));
+        }
+//        if (!levelCrossingIps.containsKey(UUID.fromString(areaDTO.getId()))) {
+//            return ResponseEntity.badRequest().body(String.format("Lever crossing with id: %s has not been registered yet", areaDTO.getId()));
+//        }
+        Collection<AreaDataDTO> areaData = selectedAreas.get(UUID.fromString(areaDTO.getId()));
+        if (!areaData.isEmpty() && areaData.parallelStream().anyMatch(s -> s.getAreaName().equals(areaDTO.getArea().getAreaName()))) {
+            return ResponseEntity.badRequest().body("Area with that name already exists");
+        }
+        if (areaDTO.getArea().getPointsList().isEmpty()) {
+            return ResponseEntity.badRequest().body("Points list can't be empty");
+        }
+        if (!areaData.isEmpty() && areaData.parallelStream().anyMatch(s -> s.getPointsList().equals(areaDTO.getArea().getPointsList()))) {
+            return ResponseEntity.badRequest().body("Area can't be the same");
+        }
+        selectedAreas.put(UUID.fromString(areaDTO.getId()), areaDTO.getArea());
+        return ResponseEntity.ok().body("Area has been set");
     }
 
     @PostMapping(value = "/registerNewLevelCrossing")
