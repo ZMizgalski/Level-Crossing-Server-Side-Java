@@ -25,7 +25,7 @@ public class SetupOpenCvComponent implements ApplicationListener<ApplicationRead
     @Override
     public void onApplicationEvent(final ApplicationReadyEvent event) {
         setupOpenCv();
-        deleteOldVideos(2);
+        deleteOldVideos(14);
     }
 
     @SneakyThrows
