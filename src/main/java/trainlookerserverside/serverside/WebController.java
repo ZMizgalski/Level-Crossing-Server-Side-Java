@@ -7,22 +7,27 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.io.IOUtils;
 import org.opencv.videoio.VideoCapture;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import trainlookerserverside.serverside.DTOS.*;
 import trainlookerserverside.serverside.objectdetection.ObjectDetectionService;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import javax.servlet.ServletContext;
+import java.io.*;
+import java.nio.file.Files;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Slf4j
 @RestController
@@ -70,6 +75,39 @@ public class WebController {
         return ResponseEntity.ok().body(String.format("Area with id: %s and name: %s has ben deleted", deleteAreaDTO.getId(), deleteAreaDTO.getAreaName()));
     }
 
+    @Autowired
+    private ServletContext servletContext;
+
+    @SneakyThrows
+    @GetMapping(value = "/getFileByDate/{date}")
+    public ResponseEntity<?> getFile(@PathVariable("date") @DateTimeFormat(pattern = "yyyy-MM-dd_HH-mm-ss") Date date) {
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd/HH-mm-ss");
+        String formattedDate = dateFormat.format(date);
+        HttpHeaders headers = new HttpHeaders();
+        File file = new File("videos/" + formattedDate + ".mp4");
+        if (!file.exists()) {
+            return ResponseEntity.badRequest().body("file not exists!");
+        }
+        byte[] bytes = Files.readAllBytes(file.toPath());
+        String type = FilenameUtils.getExtension(dateFormat + ".mp4");
+        return ResponseEntity.ok()
+                .contentType(MediaType.valueOf("video/" + type))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "filename=\"" + file.getName() + "\"")
+                .body(bytes);
+    }
+
+    @SneakyThrows
+    @GetMapping(value = "/getFilesByDay/{date}")
+    public ResponseEntity<?> getFiles(@PathVariable("date") @DateTimeFormat(pattern = "yyyy-MM-dd") Date date) {
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd");
+        String formattedDate = dateFormat.format(date);
+        Set<String> elo = Stream.of(Objects.requireNonNull(new File("videos/" + formattedDate).listFiles()))
+                .filter(file -> !file.isDirectory())
+                .map(File::getName)
+                .collect(Collectors.toSet());
+        return ResponseEntity.ok().body(elo);
+    }
+
     @GetMapping(value = "/getAllAreasById/{id}")
     public ResponseEntity<?> getAllAreas(@PathVariable String id) {
         Collection<AreaDataDTO> areas = selectedAreas.get(UUID.fromString(id));
@@ -108,27 +146,21 @@ public class WebController {
 
     @PostMapping(value = "/motorControl")
     public ResponseEntity<?> motorControl(@RequestBody ChangeMotorDirectionDTO changeMotorDirectionDTO) {
-
         val id = UUID.fromString(changeMotorDirectionDTO.getId());
         val motorValue = changeMotorDirectionDTO.getSwitchMotor();
         val levelCrossingAddress = levelCrossingIps.get(id);
-
         if (motorValue == null) {
             return ResponseEntity.badRequest().body("Motor value not defined!");
         }
-
         if (levelCrossingAddress == null) {
             return ResponseEntity.badRequest().body("Address not exists");
         }
-
         if (motorValue == 1) {
             makeMotorChangeRequest("/openLevelCrossing", id, levelCrossingAddress);
         }
-
         if (motorValue == 0) {
             makeMotorChangeRequest("/closeLevelCrossing", id, levelCrossingAddress);
         }
-
         return ResponseEntity.ok().body(String.format("LevelCrossing motors with id: %s switched to: %s", id.toString(), motorValue));
     }
 
@@ -160,8 +192,11 @@ public class WebController {
         RestTemplate restTemplate = new RestTemplate();
         String url = levelCrossingAddress + "/streamCamera/" + id;
         ResponseEntity<Resource> responseEntity = restTemplate.exchange(url, HttpMethod.POST, null, Resource.class);
-        FileUtils.copyInputStreamToFile(Objects.requireNonNull(responseEntity.getBody()).getInputStream(), new File("videos/" + id + ".mp4"));
-        new Thread(() -> ObjectDetectionService.runDetection(new VideoCapture("videos/" + id + ".mp4"))).start();
+        Calendar currentUtilCalendar = Calendar.getInstance();
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd/HH-mm-ss");
+        String date = dateFormat.format(currentUtilCalendar.getTime());
+        FileUtils.copyInputStreamToFile(Objects.requireNonNull(responseEntity.getBody()).getInputStream(), new File("videos/" + date + ".mp4"));
+        new Thread(() -> ObjectDetectionService.runDetection(new VideoCapture("videos/" + date + ".mp4"))).start();
         InputStream st = Objects.requireNonNull(responseEntity.getBody()).getInputStream();
         return (os) -> readAndWrite(st, os);
     }
@@ -175,5 +210,4 @@ public class WebController {
         }
         os.flush();
     }
-
 }
