@@ -8,20 +8,23 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.io.IOUtils;
 import org.opencv.videoio.VideoCapture;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.*;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import trainlookerserverside.serverside.DTOS.*;
 import trainlookerserverside.serverside.objectdetection.ObjectDetectionService;
 
-import javax.servlet.ServletContext;
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -74,9 +77,6 @@ public class WebController {
         selectedAreas.remove(UUID.fromString(deleteAreaDTO.getId()), area);
         return ResponseEntity.ok().body(String.format("Area with id: %s and name: %s has ben deleted", deleteAreaDTO.getId(), deleteAreaDTO.getAreaName()));
     }
-
-    @Autowired
-    private ServletContext servletContext;
 
     @SneakyThrows
     @GetMapping(value = "/getFileByDate/{date}")
