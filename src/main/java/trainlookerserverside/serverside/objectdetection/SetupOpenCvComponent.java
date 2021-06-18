@@ -4,9 +4,11 @@ import lombok.SneakyThrows;
 import nu.pattern.OpenCV;
 import org.apache.commons.io.FileUtils;
 import org.opencv.core.Core;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationListener;
 import org.springframework.stereotype.Component;
+import trainlookerserverside.serverside.socket.DataService;
 
 import java.io.File;
 import java.io.IOException;
@@ -22,10 +24,14 @@ import java.util.stream.Stream;
 @Component
 public class SetupOpenCvComponent implements ApplicationListener<ApplicationReadyEvent> {
 
+    @Autowired
+    private DataService dataService;
+
     @Override
     public void onApplicationEvent(final ApplicationReadyEvent event) {
         setupOpenCv();
         deleteOldVideos(14);
+        dataService.startServerSocket();
     }
 
     @SneakyThrows
