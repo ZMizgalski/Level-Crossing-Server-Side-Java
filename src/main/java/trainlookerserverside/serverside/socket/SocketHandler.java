@@ -1,7 +1,5 @@
 package trainlookerserverside.serverside.socket;
 
-import lombok.AllArgsConstructor;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -9,7 +7,6 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.concurrent.Callable;
 
-@AllArgsConstructor
 public class SocketHandler implements Callable<String> {
 
     private final BufferedReader in;
