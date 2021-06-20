@@ -37,12 +37,6 @@ public class ObjectDetectionService {
         net.setPreferableTarget(Dnn.DNN_TARGET_CPU);
         JFrame jframe = new JFrame("Testing");
         jframe.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-        /*
-         SecurityManager security = System.getSecurityManager();
-            if (security != null) {
-                security.checkExit(0);
-            }
-         */
         JLabel vidPanel = new JLabel();
         jframe.setContentPane(vidPanel);
         jframe.setSize((int) width, (int) height);
