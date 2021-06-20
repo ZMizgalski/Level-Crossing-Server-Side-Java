@@ -71,7 +71,6 @@ public class DataService {
             Socket socket = null;
             try {
                 socket = serverSocket.accept();
-                System.out.println(levelCrossingIps);
             } catch (IOException ignored) {
             } finally {
                 levelCrossingIps.values().removeIf(ipAddr -> !connectionIsReachable(ipAddr));
