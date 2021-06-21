@@ -7,6 +7,7 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import si.trina.socket.live.SocketConnection;
 import trainlookerserverside.serverside.DTOS.AreaDataDTO;
 
 import java.io.IOException;
@@ -34,7 +35,9 @@ public class DataService {
     @Getter
     private final ExecutorService pool = Executors.newFixedThreadPool(10);
     @Value("${socket.port}")
-    private int localPort;
+    private int socketPort;
+    @Value("${server.ip}")
+    private String serverIp;
     @Getter
     private ServerSocket serverSocket;
 
@@ -61,6 +64,7 @@ public class DataService {
         return true;
     }
 
+    @SneakyThrows
     private void start(int port) {
         try {
             serverSocket = new ServerSocket(port);
@@ -71,11 +75,13 @@ public class DataService {
             Socket socket = null;
             try {
                 socket = serverSocket.accept();
+
             } catch (IOException ignored) {
             } finally {
                 levelCrossingIps.values().removeIf(ipAddr -> !connectionIsReachable(ipAddr));
             }
             if (socket != null) {
+
                 SocketHandler socketThread = null;
                 try {
                     socketThread = new SocketHandler(socket);
@@ -108,6 +114,6 @@ public class DataService {
 
     @SneakyThrows
     public void startServerSocket() {
-        start(localPort);
+        start(socketPort);
     }
 }

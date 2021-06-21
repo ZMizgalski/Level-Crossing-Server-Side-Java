@@ -23,6 +23,7 @@ dependencies {
 //    implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.openpnp:opencv:4.5.1-2'
     implementation 'com.google.guava:guava:29.0-jre'
+    implementation 'si.trina:socket-live:0.0.3'
     implementation 'org.springframework.boot:spring-boot-starter-websocket'
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'commons-io:commons-io:2.7'
