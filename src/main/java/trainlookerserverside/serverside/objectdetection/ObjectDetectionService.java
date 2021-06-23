@@ -131,6 +131,26 @@ public class ObjectDetectionService {
                 Imgproc.rectangle(frame, box.tl(), box.br(), new Scalar(255, 0, 0), 2);
             }
         }
+
+
+        // from AreaDTO
+        List<Point> list = new ArrayList<>();
+        list.add(new Point(208, 71));
+        list.add(new Point(421, 161));
+        list.add(new Point(332, 52));
+        list.add(new Point(369, 250));
+        list.add(new Point(421, 161));
+
+        // converting to MatOfPoint
+        MatOfPoint matOfPoint = new MatOfPoint();
+        matOfPoint.fromList(list);
+
+        // adding areas to Frame
+        List<MatOfPoint> points = new ArrayList<>();
+        points.add(matOfPoint);
+
+        // Displaying area
+        Imgproc.fillPoly(frame, points, new Scalar(64, 64, 64), Imgproc.LINE_8);
         return frame;
     }
 }
