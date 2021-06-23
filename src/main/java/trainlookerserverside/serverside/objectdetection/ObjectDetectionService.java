@@ -17,6 +17,7 @@ import java.awt.image.DataBufferByte;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.Scanner;
 
 @Service
@@ -96,6 +97,41 @@ public class ObjectDetectionService {
         Mat blob = Dnn.blobFromImage(frame, 1 / 255f, new Size(416, 416), new Scalar(0, 0, 0), false, false);
         net.setInput(blob);
         net.forward(results, outBlobNames);
+        // <========================>
+        // from AreaDTO
+        List<Point> list = new ArrayList<>();
+        list.add(new Point(208, 71));
+        list.add(new Point(421, 161));
+        list.add(new Point(332, 52));
+        list.add(new Point(369, 250));
+        list.add(new Point(421, 161));
+
+        List<Point> list2 = new ArrayList<>();
+        list2.add(new Point(50, 50));
+        list2.add(new Point(50, 150));
+        list2.add(new Point(520, 369));
+        list2.add(new Point(150, 50));
+
+        // converting to MatOfPoint
+        MatOfPoint matOfPoint1 = new MatOfPoint();
+        matOfPoint1.fromList(list);
+
+        MatOfPoint matOfPoint2 = new MatOfPoint();
+        matOfPoint2.fromList(list2);
+
+        // adding areas to Frame
+        List<MatOfPoint> points = new ArrayList<>();
+        points.add(matOfPoint1);
+        points.add(matOfPoint2);
+
+        // Displaying area
+        double opacity = 0.6;
+        Mat overlay = new Mat();
+        frame.copyTo(overlay);
+        Imgproc.fillPoly(frame, points, new Scalar(255, 0, 0, 0), Imgproc.LINE_8);
+        Core.addWeighted(overlay, opacity, frame, 1-opacity,0, frame);
+
+        // <========================>
         for (Mat level : results) {
             for (int i = 0; i < level.rows(); ++i) {
                 Mat row = level.row(i);
@@ -127,30 +163,31 @@ public class ObjectDetectionService {
             for (int idx : ind) {
                 Rect2d box = boxesForDNN[idx];
                 int classID = clsIds.get(idx);
+                for (MatOfPoint point: points) {
+                    if (polygonsContainsWithDetections(point, box)) {
+                        System.out.println(cocoNames.get(classID));
+                    }
+                }
                 Imgproc.putText(frame, cocoNames.get(classID), box.tl(), Imgproc.FONT_HERSHEY_COMPLEX, 2, new Scalar(255, 255, 0), 2);
                 Imgproc.rectangle(frame, box.tl(), box.br(), new Scalar(255, 0, 0), 2);
             }
         }
-
-
-        // from AreaDTO
-        List<Point> list = new ArrayList<>();
-        list.add(new Point(208, 71));
-        list.add(new Point(421, 161));
-        list.add(new Point(332, 52));
-        list.add(new Point(369, 250));
-        list.add(new Point(421, 161));
-
-        // converting to MatOfPoint
-        MatOfPoint matOfPoint = new MatOfPoint();
-        matOfPoint.fromList(list);
-
-        // adding areas to Frame
-        List<MatOfPoint> points = new ArrayList<>();
-        points.add(matOfPoint);
-
-        // Displaying area
-        Imgproc.fillPoly(frame, points, new Scalar(64, 64, 64), Imgproc.LINE_8);
         return frame;
+    }
+
+    public static boolean polygonsContainsWithDetections(MatOfPoint src1, Rect2d src2) {
+        if (Imgproc.pointPolygonTest(new MatOfPoint2f(src1.toArray()), new Point(src2.tl().x, src2.tl().y), true) > 0) {
+            return true;
+        }
+        if (Imgproc.pointPolygonTest(new MatOfPoint2f(src1.toArray()), new Point(src2.br().x, src2.br().y), true) > 0) {
+            return true;
+        }
+        if (Imgproc.pointPolygonTest(new MatOfPoint2f(src1.toArray()), new Point(src2.br().x, src2.tl().y), true) > 0) {
+            return true;
+        }
+        if (Imgproc.pointPolygonTest(new MatOfPoint2f(src1.toArray()), new Point(src2.tl().x, src2.br().y), true) > 0) {
+            return true;
+        }
+        return false;
     }
 }
