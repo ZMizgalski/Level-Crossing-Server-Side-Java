@@ -194,7 +194,7 @@ public class WebController {
             };
         }
         RestTemplate restTemplate = new RestTemplate();
-        String url = levelCrossingAddress + "/streamCamera/" + id;
+        String url = levelCrossingAddress.getIp() + "/streamCamera/" + id;
         ResponseEntity<Resource> responseEntity = restTemplate.exchange(url, HttpMethod.POST, null, Resource.class);
         Calendar currentUtilCalendar = Calendar.getInstance();
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd/HH-mm-ss");
