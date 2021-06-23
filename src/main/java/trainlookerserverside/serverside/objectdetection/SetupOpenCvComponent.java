@@ -8,7 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationListener;
 import org.springframework.stereotype.Component;
-import trainlookerserverside.serverside.socket.DataService;
+import trainlookerserverside.serverside.DataService;
 
 import java.io.File;
 import java.io.IOException;
@@ -31,7 +31,6 @@ public class SetupOpenCvComponent implements ApplicationListener<ApplicationRead
     public void onApplicationEvent(final ApplicationReadyEvent event) {
         setupOpenCv();
         deleteOldVideos(14);
-        dataService.startServerSocket();
     }
 
     @SneakyThrows

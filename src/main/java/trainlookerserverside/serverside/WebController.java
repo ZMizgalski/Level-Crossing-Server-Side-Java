@@ -18,7 +18,6 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import trainlookerserverside.serverside.DTOS.*;
 import trainlookerserverside.serverside.objectdetection.ObjectDetectionService;
-import trainlookerserverside.serverside.socket.DataService;
 
 import java.io.File;
 import java.io.IOException;
@@ -30,7 +29,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static trainlookerserverside.serverside.socket.DataService.isValidUUID;
+import static trainlookerserverside.serverside.DataService.isValidUUID;
 
 @Slf4j
 @RestController
@@ -41,26 +40,26 @@ public class WebController {
     @Autowired
     private DataService dataService;
 
-    @PostMapping(value = "/registerNewLevelCrossing")
-    public ResponseEntity<?> registerNewLevelCrossing(@RequestBody RegisterNewLevelCrossingDTO registerNewLevelCrossingDTO) {
-        val levelCrossingIP = registerNewLevelCrossingDTO.getLevelCrossingIP();
-        addNewLevelCrossing(registerNewLevelCrossingDTO);
-        System.out.println(dataService.levelCrossingIps);
-        return ResponseEntity.ok().body(String.format("You have been registered as: %s", levelCrossingIP));
-    }
+//    @PostMapping(value = "/registerNewLevelCrossing")
+//    public ResponseEntity<?> registerNewLevelCrossing(@RequestBody RegisterNewLevelCrossingDTO registerNewLevelCrossingDTO) {
+//        val levelCrossingIP = registerNewLevelCrossingDTO.getLevelCrossingIP();
+//        addNewLevelCrossing(registerNewLevelCrossingDTO);
+//        System.out.println(dataService.levelCrossingIps);
+//        return ResponseEntity.ok().body(String.format("You have been registered as: %s", levelCrossingIP));
+//    }
 
-    private void addNewLevelCrossing(RegisterNewLevelCrossingDTO registerNewLevelCrossingDTO) {
-        val id = UUID.fromString(registerNewLevelCrossingDTO.getId());
-        val ip = registerNewLevelCrossingDTO.getLevelCrossingIP();
-        if (dataService.levelCrossingIps.containsValue(ip)) {
-            dataService.levelCrossingIps.values().remove(ip);
-            dataService.levelCrossingIps.put(id, registerNewLevelCrossingDTO.getLevelCrossingIP());
-            log.warn(String.format("Existing levelCrossing ip updated as: %s", registerNewLevelCrossingDTO.getLevelCrossingIP()));
-            return;
-        }
-        dataService.levelCrossingIps.put(id, registerNewLevelCrossingDTO.getLevelCrossingIP());
-        log.warn(String.format("New levelCrossing registered as: %s", registerNewLevelCrossingDTO.getLevelCrossingIP()));
-    }
+//    private void addNewLevelCrossing(RegisterNewLevelCrossingDTO registerNewLevelCrossingDTO) {
+//        val id = UUID.fromString(registerNewLevelCrossingDTO.getId());
+//        val ip = registerNewLevelCrossingDTO.getLevelCrossingIP();
+//        if (dataService.levelCrossingIps.containsValue(ip)) {
+//            dataService.levelCrossingIps.values().remove(ip);
+//            dataService.levelCrossingIps.put(id, registerNewLevelCrossingDTO.getLevelCrossingIP());
+//            log.warn(String.format("Existing levelCrossing ip updated as: %s", registerNewLevelCrossingDTO.getLevelCrossingIP()));
+//            return;
+//        }
+//        dataService.levelCrossingIps.put(id, registerNewLevelCrossingDTO.getLevelCrossingIP());
+//        log.warn(String.format("New levelCrossing registered as: %s", registerNewLevelCrossingDTO.getLevelCrossingIP()));
+//    }
 
 
     @PostMapping(value = "/motorControl")
@@ -75,10 +74,10 @@ public class WebController {
             return ResponseEntity.badRequest().body("Address not exists");
         }
         if (motorValue == 1) {
-            makeMotorChangeRequest("/openLevelCrossing", id, levelCrossingAddress);
+            makeMotorChangeRequest("/openLevelCrossing", id, levelCrossingAddress.getIp());
         }
         if (motorValue == 0) {
-            makeMotorChangeRequest("/closeLevelCrossing", id, levelCrossingAddress);
+            makeMotorChangeRequest("/closeLevelCrossing", id, levelCrossingAddress.getIp());
         }
         return ResponseEntity.ok().body(String.format("LevelCrossing motors with id: %s switched to: %s", id.toString(), motorValue));
     }

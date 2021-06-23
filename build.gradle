@@ -6,7 +6,7 @@ plugins {
 
 group = 'trainlookerserverside'
 version = '0.0.1-SNAPSHOT'
-sourceCompatibility = '16'
+sourceCompatibility = '11'
 
 configurations {
 	compileOnly {
@@ -21,6 +21,8 @@ repositories {
 dependencies {
 //	implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
 //    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-integration'
+    implementation 'org.springframework.integration:spring-integration-ip'
     implementation 'org.openpnp:opencv:4.5.1-2'
     implementation 'com.google.guava:guava:29.0-jre'
     implementation 'si.trina:socket-live:0.0.3'
