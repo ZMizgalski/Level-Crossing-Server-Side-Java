@@ -185,6 +185,22 @@ public class WebController {
     }
 
     @SneakyThrows
+    @RequestMapping("/stream-cover/{id}")
+    @ResponseBody
+    public StreamingResponseBody getStreamCover(@PathVariable String id) {
+        val levelCrossingAddress = dataService.levelCrossingIps.get(UUID.fromString(id));
+        if (levelCrossingAddress == null) {
+            return outputStream -> {
+            };
+        }
+        RestTemplate restTemplate = new RestTemplate();
+        String url = levelCrossingAddress.getIp() + "/getStreamCover/" + id;
+        ResponseEntity<Resource> responseEntity = restTemplate.exchange(url, HttpMethod.GET, null, Resource.class);
+        InputStream st = Objects.requireNonNull(responseEntity.getBody()).getInputStream();
+        return (os) -> readAndWrite(st, os);
+    }
+
+    @SneakyThrows
     @RequestMapping("/server-stream/{id}")
     @ResponseBody
     public StreamingResponseBody getSecuredHttpStream(@PathVariable String id) {
@@ -195,7 +211,7 @@ public class WebController {
         }
         RestTemplate restTemplate = new RestTemplate();
         String url = levelCrossingAddress.getIp() + "/streamCamera/" + id;
-        ResponseEntity<Resource> responseEntity = restTemplate.exchange(url, HttpMethod.POST, null, Resource.class);
+        ResponseEntity<Resource> responseEntity = restTemplate.exchange(url, HttpMethod.GET, null, Resource.class);
         Calendar currentUtilCalendar = Calendar.getInstance();
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd/HH-mm-ss");
         String date = dateFormat.format(currentUtilCalendar.getTime());
