@@ -5,11 +5,7 @@ import lombok.Data;
 
 @Data
 @AllArgsConstructor
-public class ConnectionDTO {
-
-    private String ip;
-
+public class AllCamerasResponse {
+    private String id;
     private String data;
-
-    private String connectionId;
 }

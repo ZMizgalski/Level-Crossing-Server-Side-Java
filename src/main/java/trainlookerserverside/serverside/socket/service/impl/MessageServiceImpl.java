@@ -23,7 +23,7 @@ public class MessageServiceImpl implements MessageService {
     public byte[] processMessage(byte[] message, TcpConnectionEvent connection) {
         String messageContent = new String(message);
         LOGGER.info("Receive message: {}", messageContent);
-        ConnectionDTO connectionDTO = new ConnectionDTO(messageContent, connection.getConnectionId());
+        ConnectionDTO connectionDTO = new ConnectionDTO(messageContent, "Default Content", connection.getConnectionId());
         if (!dataService.levelCrossingIps.containsValue(connectionDTO)) {
             dataService.levelCrossingIps.put(UUID.randomUUID(), connectionDTO);
         }

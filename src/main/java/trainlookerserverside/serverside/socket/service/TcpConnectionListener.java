@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationListener;
+import org.springframework.integration.ip.tcp.connection.TcpConnectionCloseEvent;
 import org.springframework.integration.ip.tcp.connection.TcpConnectionEvent;
 import org.springframework.integration.ip.tcp.connection.TcpConnectionExceptionEvent;
 import org.springframework.stereotype.Component;
@@ -27,7 +28,7 @@ public class TcpConnectionListener implements ApplicationListener<TcpConnectionE
 
     @Override
     public void onApplicationEvent(TcpConnectionEvent event) {
-        if (event instanceof TcpConnectionExceptionEvent) {
+        if (event instanceof TcpConnectionExceptionEvent || event instanceof TcpConnectionCloseEvent) {
             log.info("TCP connection closed with id={}", event.getConnectionId());
             connections.remove(event.getConnectionId());
             dataService.levelCrossingIps.values().removeIf(value -> value.getConnectionId().equals(event.getConnectionId()));

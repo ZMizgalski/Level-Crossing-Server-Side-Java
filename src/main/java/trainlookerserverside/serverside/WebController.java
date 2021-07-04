@@ -61,6 +61,36 @@ public class WebController {
 //        log.warn(String.format("New levelCrossing registered as: %s", registerNewLevelCrossingDTO.getLevelCrossingIP()));
 //    }
 
+    @GetMapping(value = "/getAllCameras")
+    public ResponseEntity<?> getAllCameras() {
+        List<AllCamerasResponse> cameras = new ArrayList<>();
+        this.dataService.levelCrossingIps.forEach((ip, connectionId) -> {
+            AllCamerasResponse allCamerasResponse = new AllCamerasResponse(
+                    ip.toString(),
+                    connectionId.getData() == null ? "Default content" : connectionId.getData());
+            cameras.add(allCamerasResponse);
+        });
+        return ResponseEntity.ok().body(cameras);
+    }
+
+    @GetMapping(value = "/getCameraById/{id}")
+    public ResponseEntity<?> getCameraById(@PathVariable String id) {
+        if (!isValidUUID(id)) {
+            return ResponseEntity.badRequest().body("Invalid UUID");
+        }
+        if (!this.dataService.levelCrossingIps.containsKey(UUID.fromString(id))) {
+            return ResponseEntity.badRequest().body("Camera not exists");
+        }
+        ConnectionDTO connectionDTO = this.dataService.levelCrossingIps.get(UUID.fromString(id));
+        Collection<AreaDataDTO> areaDataDTOS = this.dataService.selectedAreas.get(UUID.fromString(id));
+        CameraResponse cameraResponse = new CameraResponse(
+                id,
+                connectionDTO.getIp(),
+                connectionDTO.getConnectionId(),
+                new ArrayList<>(areaDataDTOS)
+        );
+        return ResponseEntity.ok().body(cameraResponse);
+    }
 
     @PostMapping(value = "/motorControl")
     public ResponseEntity<?> motorControl(@RequestBody ChangeMotorDirectionDTO changeMotorDirectionDTO) {
