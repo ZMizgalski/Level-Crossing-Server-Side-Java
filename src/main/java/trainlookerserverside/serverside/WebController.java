@@ -179,51 +179,51 @@ public class WebController {
     }
 
     @SneakyThrows
-    @GetMapping(value = "/getFileByDate/{date}")
-    public ResponseEntity<?> getFile(@PathVariable("date") @DateTimeFormat(pattern = "yyyy-MM-dd_HH-mm-ss") Date date) {
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd/HH-mm-ss");
-        String formattedDate = dateFormat.format(date);
-        HttpHeaders headers = new HttpHeaders();
-        File file = new File("videos/" + formattedDate + ".mp4");
-        if (!file.exists()) {
-            return ResponseEntity.badRequest().body("file not exists!");
+    @GetMapping(value = "/getFileByDate/{id}/{date}")
+    public StreamingResponseBody getFile(@PathVariable("id") String id,@PathVariable("date") @DateTimeFormat(pattern = "yyyy-MM-dd_HH-mm-ss") Date date) {
+        ConnectionDTO connectionDTO = dataService.levelCrossingIps.get(UUID.fromString(id));
+        if (connectionDTO == null) {
+            return outputStream -> {
+            };
         }
-        byte[] bytes = Files.readAllBytes(file.toPath());
-        String type = FilenameUtils.getExtension(dateFormat + ".mp4");
-        return ResponseEntity.ok()
-                .contentType(MediaType.valueOf("video/" + type))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "filename=\"" + file.getName() + "\"")
-                .body(bytes);
+        SimpleDateFormat workDateFormat = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss");
+        RestTemplate restTemplate = new RestTemplate();
+        String url = connectionDTO.getIp() + "/getFileByDate/" + workDateFormat.format(date);
+        ResponseEntity<Resource> responseEntity = restTemplate.exchange(url, HttpMethod.GET, null, Resource.class);
+        InputStream st = Objects.requireNonNull(responseEntity.getBody()).getInputStream();
+        return (os) -> readAndWrite(st, os);
     }
 
     @SneakyThrows
-    @GetMapping(value = "/downloadFileByDate/{date}")
-    public ResponseEntity<?> downloadFile(@PathVariable("date") @DateTimeFormat(pattern = "yyyy-MM-dd_HH-mm-ss") Date date) {
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd/HH-mm-ss");
-        String formattedDate = dateFormat.format(date);
-        HttpHeaders headers = new HttpHeaders();
-        File file = new File("videos/" + formattedDate + ".mp4");
-        if (!file.exists()) {
-            return ResponseEntity.badRequest().body("file not exists!");
+    @GetMapping(value = "/downloadFileByDate/{id}/{date}")
+    public StreamingResponseBody downloadFile(@PathVariable("id") String id,@PathVariable("date") @DateTimeFormat(pattern = "yyyy-MM-dd_HH-mm-ss") Date date) {
+        ConnectionDTO connectionDTO = dataService.levelCrossingIps.get(UUID.fromString(id));
+        if (connectionDTO == null) {
+            return outputStream -> {
+            };
         }
-        byte[] bytes = Files.readAllBytes(file.toPath());
-        String type = FilenameUtils.getExtension(dateFormat + ".mp4");
-        return ResponseEntity.ok()
-                .contentType(MediaType.valueOf("video/" + type))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + file.getName() + "\"")
-                .body(bytes);
+        SimpleDateFormat workDateFormat = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss");
+        RestTemplate restTemplate = new RestTemplate();
+        String url = connectionDTO.getIp() + "/downloadFileByDate/" + workDateFormat.format(date);
+        ResponseEntity<Resource> responseEntity = restTemplate.exchange(url, HttpMethod.GET, null, Resource.class);
+        InputStream st = Objects.requireNonNull(responseEntity.getBody()).getInputStream();
+        return (os) -> readAndWrite(st, os);
     }
 
     @SneakyThrows
-    @GetMapping(value = "/getFilesByDay/{date}")
-    public ResponseEntity<?> getFiles(@PathVariable("date") @DateTimeFormat(pattern = "yyyy-MM-dd") Date date) {
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd");
-        String formattedDate = dateFormat.format(date);
-        Set<String> elo = Stream.of(Objects.requireNonNull(new File("videos/" + formattedDate).listFiles()))
-                .filter(file -> !file.isDirectory())
-                .map(File::getName)
-                .collect(Collectors.toSet());
-        return ResponseEntity.ok().body(elo);
+    @GetMapping(value = "/getFilesByDay/{id}/{date}")
+    public StreamingResponseBody getFiles(@PathVariable("id") String id,@PathVariable("date") @DateTimeFormat(pattern = "yyyy-MM-dd") Date date) {
+        ConnectionDTO connectionDTO = dataService.levelCrossingIps.get(UUID.fromString(id));
+        if (connectionDTO == null) {
+            return outputStream -> {
+            };
+        }
+        SimpleDateFormat workDateFormat = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss");
+        RestTemplate restTemplate = new RestTemplate();
+        String url = connectionDTO.getIp() + "/getFilesByDay/" + workDateFormat.format(date);
+        ResponseEntity<Resource> responseEntity = restTemplate.exchange(url, HttpMethod.GET, null, Resource.class);
+        InputStream st = Objects.requireNonNull(responseEntity.getBody()).getInputStream();
+        return (os) -> readAndWrite(st, os);
     }
 
     @GetMapping(value = "/getAllAreasById/{id}")
@@ -242,7 +242,7 @@ public class WebController {
             };
         }
         RestTemplate restTemplate = new RestTemplate();
-        String url = levelCrossingAddress.getIp() + "/getStreamCover/" + id;
+        String url = levelCrossingAddress.getIp() + "/getStreamCover";
         ResponseEntity<Resource> responseEntity = restTemplate.exchange(url, HttpMethod.GET, null, Resource.class);
         InputStream st = Objects.requireNonNull(responseEntity.getBody()).getInputStream();
         return (os) -> readAndWrite(st, os);
@@ -260,10 +260,13 @@ public class WebController {
         RestTemplate restTemplate = new RestTemplate();
         String url = levelCrossingAddress.getIp() + "/streamCamera/" + id;
         ResponseEntity<Resource> responseEntity = restTemplate.exchange(url, HttpMethod.GET, null, Resource.class);
+
         Calendar currentUtilCalendar = Calendar.getInstance();
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd/HH-mm-ss");
         String date = dateFormat.format(currentUtilCalendar.getTime());
         FileUtils.copyInputStreamToFile(Objects.requireNonNull(responseEntity.getBody()).getInputStream(), new File("videos/" + id +"/"+date + ".mp4"));
+
+
         new Thread(() -> ObjectDetectionService.runDetection(new VideoCapture("videos/" + date + ".mp4"))).start();
         InputStream st = Objects.requireNonNull(responseEntity.getBody()).getInputStream();
         return (os) -> readAndWrite(st, os);
