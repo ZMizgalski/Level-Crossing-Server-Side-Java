@@ -197,6 +197,24 @@ public class WebController {
     }
 
     @SneakyThrows
+    @GetMapping(value = "/downloadFileByDate/{date}")
+    public ResponseEntity<?> downloadFile(@PathVariable("date") @DateTimeFormat(pattern = "yyyy-MM-dd_HH-mm-ss") Date date) {
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd/HH-mm-ss");
+        String formattedDate = dateFormat.format(date);
+        HttpHeaders headers = new HttpHeaders();
+        File file = new File("videos/" + formattedDate + ".mp4");
+        if (!file.exists()) {
+            return ResponseEntity.badRequest().body("file not exists!");
+        }
+        byte[] bytes = Files.readAllBytes(file.toPath());
+        String type = FilenameUtils.getExtension(dateFormat + ".mp4");
+        return ResponseEntity.ok()
+                .contentType(MediaType.valueOf("video/" + type))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + file.getName() + "\"")
+                .body(bytes);
+    }
+
+    @SneakyThrows
     @GetMapping(value = "/getFilesByDay/{date}")
     public ResponseEntity<?> getFiles(@PathVariable("date") @DateTimeFormat(pattern = "yyyy-MM-dd") Date date) {
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd");
@@ -245,7 +263,7 @@ public class WebController {
         Calendar currentUtilCalendar = Calendar.getInstance();
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd/HH-mm-ss");
         String date = dateFormat.format(currentUtilCalendar.getTime());
-        FileUtils.copyInputStreamToFile(Objects.requireNonNull(responseEntity.getBody()).getInputStream(), new File("videos/" + date + ".mp4"));
+        FileUtils.copyInputStreamToFile(Objects.requireNonNull(responseEntity.getBody()).getInputStream(), new File("videos/" + id +"/"+date + ".mp4"));
         new Thread(() -> ObjectDetectionService.runDetection(new VideoCapture("videos/" + date + ".mp4"))).start();
         InputStream st = Objects.requireNonNull(responseEntity.getBody()).getInputStream();
         return (os) -> readAndWrite(st, os);

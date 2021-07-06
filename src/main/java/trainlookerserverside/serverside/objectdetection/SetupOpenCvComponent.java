@@ -69,7 +69,7 @@ public class SetupOpenCvComponent implements ApplicationListener<ApplicationRead
                 }
             });
         } catch (IOException e) {
-            e.printStackTrace();
+            //
         }
     }
 
