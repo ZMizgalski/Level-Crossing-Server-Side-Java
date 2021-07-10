@@ -17,14 +17,13 @@ import java.awt.image.DataBufferByte;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import java.util.Scanner;
 
 @Service
 public class ObjectDetectionService {
 
     @SneakyThrows
-    public static void runDetection(VideoCapture capture) {
+    public static void runDetection(VideoCapture capture, String path) {
         Mat frame = new Mat();
         double width = capture.get(Videoio.CAP_PROP_FRAME_WIDTH);
         double height = capture.get(Videoio.CAP_PROP_FRAME_HEIGHT);
@@ -49,6 +48,7 @@ public class ObjectDetectionService {
                 vidPanel.repaint();
             } else {
                 jframe.dispose();
+                new File(path).delete();
                 break;
             }
         }
@@ -129,7 +129,7 @@ public class ObjectDetectionService {
         Mat overlay = new Mat();
         frame.copyTo(overlay);
         Imgproc.fillPoly(frame, points, new Scalar(255, 0, 0, 0), Imgproc.LINE_8);
-        Core.addWeighted(overlay, opacity, frame, 1-opacity,0, frame);
+        Core.addWeighted(overlay, opacity, frame, 1 - opacity, 0, frame);
 
         // <========================>
         for (Mat level : results) {
@@ -163,7 +163,7 @@ public class ObjectDetectionService {
             for (int idx : ind) {
                 Rect2d box = boxesForDNN[idx];
                 int classID = clsIds.get(idx);
-                for (MatOfPoint point: points) {
+                for (MatOfPoint point : points) {
                     if (polygonsContainsWithDetections(point, box)) {
                         System.out.println(cocoNames.get(classID));
                     }

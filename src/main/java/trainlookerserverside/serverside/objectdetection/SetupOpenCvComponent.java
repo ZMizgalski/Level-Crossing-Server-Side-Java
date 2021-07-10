@@ -1,6 +1,5 @@
 package trainlookerserverside.serverside.objectdetection;
 
-import lombok.SneakyThrows;
 import nu.pattern.OpenCV;
 import org.apache.commons.io.FileUtils;
 import org.opencv.core.Core;
@@ -12,14 +11,6 @@ import trainlookerserverside.serverside.DataService;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.text.SimpleDateFormat;
-import java.time.ZoneId;
-import java.util.Date;
-import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
 @Component
 public class SetupOpenCvComponent implements ApplicationListener<ApplicationReadyEvent> {
@@ -29,48 +20,18 @@ public class SetupOpenCvComponent implements ApplicationListener<ApplicationRead
 
     @Override
     public void onApplicationEvent(final ApplicationReadyEvent event) {
+        deleteAllTmpFiles();
         setupOpenCv();
-        deleteOldVideos(14);
     }
 
-    @SneakyThrows
-    public boolean isEmpty(Path path) {
-        if (Files.isDirectory(path)) {
-            try (Stream<Path> entries = Files.list(path)) {
-                return entries.findFirst().isEmpty();
-            }
-        }
-        return false;
-    }
 
-    private void deleteOldVideos(long filesRemovePeriod) {
-        long DAY_IN_MS = 1000 * 60 * 60 * 24;
-        Date date = new Date(System.currentTimeMillis() - (filesRemovePeriod * DAY_IN_MS));
-        SimpleDateFormat monthDate = new SimpleDateFormat("yyyy/MM");
-        String formattedMonthDate = monthDate.format(date);
+    private void deleteAllTmpFiles() {
         try {
-            Files.walk(Paths.get("videos/" + formattedMonthDate)).filter(file -> {
-                String fileName = file + "";
-                String[] splitPath = fileName.split(Pattern.quote(File.separator));
-                if (splitPath.length == 4) {
-                    int dayFromFile = Integer.parseInt(splitPath[3]);
-                    int daysBefore = date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate().getDayOfMonth();
-                    return dayFromFile < daysBefore;
-                }
-                return false;
-            }).forEach(file -> {
-                try {
-                    FileUtils.cleanDirectory(file.toFile());
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-                if (isEmpty(file)) {
-                    file.toFile().delete();
-                }
-            });
-        } catch (IOException e) {
-            //
-        }
+            File file = new File("videos");
+            if (file.exists()) {
+                FileUtils.cleanDirectory(file);
+            }
+        } catch (IOException ignored) { }
     }
 
     private void setupOpenCv() {

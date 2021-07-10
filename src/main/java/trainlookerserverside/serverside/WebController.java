@@ -4,15 +4,13 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.FilenameUtils;
 import org.opencv.videoio.VideoCapture;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.config.Task;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
@@ -23,11 +21,9 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.file.Files;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static trainlookerserverside.serverside.DataService.isValidUUID;
 
@@ -82,12 +78,10 @@ public class WebController {
             return ResponseEntity.badRequest().body("Camera not exists");
         }
         ConnectionDTO connectionDTO = this.dataService.levelCrossingIps.get(UUID.fromString(id));
-        Collection<AreaDataDTO> areaDataDTOS = this.dataService.selectedAreas.get(UUID.fromString(id));
         CameraResponse cameraResponse = new CameraResponse(
                 id,
                 connectionDTO.getIp(),
-                connectionDTO.getConnectionId(),
-                new ArrayList<>(areaDataDTOS)
+                connectionDTO.getConnectionId()
         );
         return ResponseEntity.ok().body(cameraResponse);
     }
@@ -129,17 +123,17 @@ public class WebController {
     }
 
     @PutMapping(value = "/updateArea")
-    public ResponseEntity<?> updateArea(@RequestBody SetAreaDTO setAreaDTO) {
-        if (!isValidUUID(setAreaDTO.getId())) {
-            return ResponseEntity.badRequest().body(String.format("UUID: %s is not valid", setAreaDTO.getId()));
+    public ResponseEntity<?> updateArea(@RequestBody UpdateAreaDTO updateAreaDTO) {
+        if (!isValidUUID(updateAreaDTO.getId())) {
+            return ResponseEntity.badRequest().body(String.format("UUID: %s is not valid", updateAreaDTO.getId()));
         }
-        if (!dataService.selectedAreas.containsKey(UUID.fromString(setAreaDTO.getId()))) {
+        if (!dataService.selectedAreas.containsKey(UUID.fromString(updateAreaDTO.getId()))) {
             return ResponseEntity.badRequest().body("Area not exists!");
         }
-        Collection<AreaDataDTO> areaDataDTOS = dataService.selectedAreas.get(UUID.fromString(setAreaDTO.getId()));
-        areaDataDTOS.removeIf(areaDataDTO -> areaDataDTO.getAreaName().equals(setAreaDTO.getArea().getAreaName()));
-        dataService.selectedAreas.put(UUID.fromString(setAreaDTO.getId()), setAreaDTO.getArea());
-        return ResponseEntity.ok().body(String.format("Area with id: %s has been updated", setAreaDTO.getId()));
+        Collection<AreaDataDTO> areaDataDTOS = dataService.selectedAreas.get(UUID.fromString(updateAreaDTO.getId()));
+        areaDataDTOS.removeIf(areaDataDTO -> areaDataDTO.getAreaName().equals(updateAreaDTO.getOldAreaName()));
+        dataService.selectedAreas.put(UUID.fromString(updateAreaDTO.getId()), updateAreaDTO.getArea());
+        return ResponseEntity.ok().body(String.format("Area with id: %s has been updated", updateAreaDTO.getId()));
     }
 
     @DeleteMapping(value = "/deleteArea")
@@ -180,7 +174,7 @@ public class WebController {
 
     @SneakyThrows
     @GetMapping(value = "/getFileByDate/{id}/{date}")
-    public StreamingResponseBody getFile(@PathVariable("id") String id,@PathVariable("date") @DateTimeFormat(pattern = "yyyy-MM-dd_HH-mm-ss") Date date) {
+    public StreamingResponseBody getFile(@PathVariable("id") String id, @PathVariable("date") @DateTimeFormat(pattern = "yyyy-MM-dd_HH-mm-ss") Date date) {
         ConnectionDTO connectionDTO = dataService.levelCrossingIps.get(UUID.fromString(id));
         if (connectionDTO == null) {
             return outputStream -> {
@@ -196,7 +190,7 @@ public class WebController {
 
     @SneakyThrows
     @GetMapping(value = "/downloadFileByDate/{id}/{date}")
-    public StreamingResponseBody downloadFile(@PathVariable("id") String id,@PathVariable("date") @DateTimeFormat(pattern = "yyyy-MM-dd_HH-mm-ss") Date date) {
+    public StreamingResponseBody downloadFile(@PathVariable("id") String id, @PathVariable("date") @DateTimeFormat(pattern = "yyyy-MM-dd_HH-mm-ss") Date date) {
         ConnectionDTO connectionDTO = dataService.levelCrossingIps.get(UUID.fromString(id));
         if (connectionDTO == null) {
             return outputStream -> {
@@ -212,7 +206,7 @@ public class WebController {
 
     @SneakyThrows
     @GetMapping(value = "/getFilesByDay/{id}/{date}")
-    public StreamingResponseBody getFiles(@PathVariable("id") String id,@PathVariable("date") @DateTimeFormat(pattern = "yyyy-MM-dd") Date date) {
+    public StreamingResponseBody getFiles(@PathVariable("id") String id, @PathVariable("date") @DateTimeFormat(pattern = "yyyy-MM-dd") Date date) {
         ConnectionDTO connectionDTO = dataService.levelCrossingIps.get(UUID.fromString(id));
         if (connectionDTO == null) {
             return outputStream -> {
@@ -220,7 +214,7 @@ public class WebController {
         }
         SimpleDateFormat workDateFormat = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss");
         RestTemplate restTemplate = new RestTemplate();
-        String url = connectionDTO.getIp() + "/getFilesByDay/" + workDateFormat.format(date);
+        String url = connectionDTO.getIp() + "/getFilesByDay/" + workDateFormat.format(date) + "/"+ id;
         ResponseEntity<Resource> responseEntity = restTemplate.exchange(url, HttpMethod.GET, null, Resource.class);
         InputStream st = Objects.requireNonNull(responseEntity.getBody()).getInputStream();
         return (os) -> readAndWrite(st, os);
@@ -229,7 +223,11 @@ public class WebController {
     @GetMapping(value = "/getAllAreasById/{id}")
     public ResponseEntity<?> getAllAreas(@PathVariable String id) {
         Collection<AreaDataDTO> areas = dataService.selectedAreas.get(UUID.fromString(id));
-        return ResponseEntity.ok().body(areas);
+        List<SetAreaDTO> finalAreas = new ArrayList<>();
+        areas.forEach(item -> {
+            finalAreas.add(new SetAreaDTO(id, item));
+        });
+        return ResponseEntity.ok().body(finalAreas);
     }
 
     @SneakyThrows
@@ -260,14 +258,13 @@ public class WebController {
         RestTemplate restTemplate = new RestTemplate();
         String url = levelCrossingAddress.getIp() + "/streamCamera/" + id;
         ResponseEntity<Resource> responseEntity = restTemplate.exchange(url, HttpMethod.GET, null, Resource.class);
-
         Calendar currentUtilCalendar = Calendar.getInstance();
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd/HH-mm-ss");
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd__HH-mm-ss");
         String date = dateFormat.format(currentUtilCalendar.getTime());
-        FileUtils.copyInputStreamToFile(Objects.requireNonNull(responseEntity.getBody()).getInputStream(), new File("videos/" + id +"/"+date + ".mp4"));
-
-
-        new Thread(() -> ObjectDetectionService.runDetection(new VideoCapture("videos/" + date + ".mp4"))).start();
+        String path = "videos/" + date + ".mp4";
+        FileUtils.copyInputStreamToFile(Objects.requireNonNull(responseEntity.getBody()).getInputStream(), new File(path));
+        Thread thread = new Thread(() -> ObjectDetectionService.runDetection(new VideoCapture(path), path));
+        thread.start();
         InputStream st = Objects.requireNonNull(responseEntity.getBody()).getInputStream();
         return (os) -> readAndWrite(st, os);
     }
