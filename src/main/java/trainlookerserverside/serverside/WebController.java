@@ -36,6 +36,9 @@ public class WebController {
     @Autowired
     private DataService dataService;
 
+    @Autowired
+    private ObjectDetectionService objectDetectionService;
+
 //    @PostMapping(value = "/registerNewLevelCrossing")
 //    public ResponseEntity<?> registerNewLevelCrossing(@RequestBody RegisterNewLevelCrossingDTO registerNewLevelCrossingDTO) {
 //        val levelCrossingIP = registerNewLevelCrossingDTO.getLevelCrossingIP();
@@ -98,29 +101,29 @@ public class WebController {
             return ResponseEntity.badRequest().body("Address not exists");
         }
         if (motorValue == 1) {
-            makeMotorChangeRequest("/openLevelCrossing", id, levelCrossingAddress.getIp());
+            dataService.makeMotorChangeRequest("/openLevelCrossing", id, levelCrossingAddress.getIp());
         }
         if (motorValue == 0) {
-            makeMotorChangeRequest("/closeLevelCrossing", id, levelCrossingAddress.getIp());
+            dataService.makeMotorChangeRequest("/closeLevelCrossing", id, levelCrossingAddress.getIp());
         }
         return ResponseEntity.ok().body(String.format("LevelCrossing motors with id: %s switched to: %s", id.toString(), motorValue));
     }
 
-    private void makeMotorChangeRequest(String httpRequest, UUID id, String address) {
-        try {
-            RestTemplate restTemplate = new RestTemplate();
-            String url = address + httpRequest + "/" + id;
-            log.info(url);
-            ResponseEntity<String> response = restTemplate.postForEntity(
-                    url,
-                    "",
-                    String.class);
-            log.warn(response.getBody());
-        } catch (Exception e) {
-            dataService.levelCrossingIps.remove(id);
-            log.error(String.format("Can't make request: %s", httpRequest));
-        }
-    }
+//    private void makeMotorChangeRequest(String httpRequest, UUID id, String address) {
+//        try {
+//            RestTemplate restTemplate = new RestTemplate();
+//            String url = address + httpRequest + "/" + id;
+//            log.info(url);
+//            ResponseEntity<String> response = restTemplate.postForEntity(
+//                    url,
+//                    "",
+//                    String.class);
+//            log.warn(response.getBody());
+//        } catch (Exception e) {
+//            dataService.levelCrossingIps.remove(id);
+//            log.error(String.format("Can't make request: %s", httpRequest));
+//        }
+//    }
 
     @PutMapping(value = "/updateArea")
     public ResponseEntity<?> updateArea(@RequestBody UpdateAreaDTO updateAreaDTO) {
@@ -185,7 +188,7 @@ public class WebController {
         String url = connectionDTO.getIp() + "/getFileByDate/" + workDateFormat.format(date);
         ResponseEntity<Resource> responseEntity = restTemplate.exchange(url, HttpMethod.GET, null, Resource.class);
         InputStream st = Objects.requireNonNull(responseEntity.getBody()).getInputStream();
-        return (os) -> readAndWrite(st, os);
+        return (os) -> dataService.readAndWrite(st, os);
     }
 
     @SneakyThrows
@@ -201,7 +204,7 @@ public class WebController {
         String url = connectionDTO.getIp() + "/downloadFileByDate/" + workDateFormat.format(date);
         ResponseEntity<Resource> responseEntity = restTemplate.exchange(url, HttpMethod.GET, null, Resource.class);
         InputStream st = Objects.requireNonNull(responseEntity.getBody()).getInputStream();
-        return (os) -> readAndWrite(st, os);
+        return (os) -> dataService.readAndWrite(st, os);
     }
 
     @SneakyThrows
@@ -217,7 +220,7 @@ public class WebController {
         String url = connectionDTO.getIp() + "/getFilesByDay/" + workDateFormat.format(date) + "/"+ id;
         ResponseEntity<Resource> responseEntity = restTemplate.exchange(url, HttpMethod.GET, null, Resource.class);
         InputStream st = Objects.requireNonNull(responseEntity.getBody()).getInputStream();
-        return (os) -> readAndWrite(st, os);
+        return (os) -> dataService.readAndWrite(st, os);
     }
 
     @GetMapping(value = "/getAllAreasById/{id}")
@@ -243,7 +246,7 @@ public class WebController {
         String url = levelCrossingAddress.getIp() + "/getStreamCover";
         ResponseEntity<Resource> responseEntity = restTemplate.exchange(url, HttpMethod.GET, null, Resource.class);
         InputStream st = Objects.requireNonNull(responseEntity.getBody()).getInputStream();
-        return (os) -> readAndWrite(st, os);
+        return (os) -> dataService.readAndWrite(st, os);
     }
 
     @SneakyThrows
@@ -263,19 +266,20 @@ public class WebController {
         String date = dateFormat.format(currentUtilCalendar.getTime());
         String path = "videos/" + date + ".mp4";
         FileUtils.copyInputStreamToFile(Objects.requireNonNull(responseEntity.getBody()).getInputStream(), new File(path));
-        Thread thread = new Thread(() -> ObjectDetectionService.runDetection(new VideoCapture(path), path));
+        Collection<AreaDataDTO> selectedAreas = dataService.selectedAreas.get(UUID.fromString(id));
+        Thread thread = new Thread(() -> objectDetectionService.runDetection(new VideoCapture(path), path, selectedAreas, id));
         thread.start();
         InputStream st = Objects.requireNonNull(responseEntity.getBody()).getInputStream();
-        return (os) -> readAndWrite(st, os);
+        return (os) -> dataService.readAndWrite(st, os);
     }
 
-    private void readAndWrite(final InputStream is, OutputStream os)
-            throws IOException {
-        byte[] data = new byte[2048];
-        int read;
-        while ((read = is.read(data)) > 0) {
-            os.write(data, 0, read);
-        }
-        os.flush();
-    }
+//    private void readAndWrite(final InputStream is, OutputStream os)
+//            throws IOException {
+//        byte[] data = new byte[2048];
+//        int read;
+//        while ((read = is.read(data)) > 0) {
+//            os.write(data, 0, read);
+//        }
+//        os.flush();
+//    }
 }

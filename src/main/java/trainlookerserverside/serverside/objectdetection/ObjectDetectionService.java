@@ -1,6 +1,8 @@
 package trainlookerserverside.serverside.objectdetection;
 
 import lombok.SneakyThrows;
+import lombok.val;
+import org.apache.commons.io.IOUtils;
 import org.opencv.core.*;
 import org.opencv.dnn.Dnn;
 import org.opencv.dnn.Net;
@@ -8,22 +10,39 @@ import org.opencv.imgproc.Imgproc;
 import org.opencv.utils.Converters;
 import org.opencv.videoio.VideoCapture;
 import org.opencv.videoio.Videoio;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+import trainlookerserverside.serverside.DTOS.AreaDataDTO;
+import trainlookerserverside.serverside.DTOS.ChangeMotorDirectionDTO;
+import trainlookerserverside.serverside.DataService;
 
 import javax.swing.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Scanner;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 
 @Service
 public class ObjectDetectionService {
 
+    public List<Integer> detectionList = new ArrayList<>();
+    public int detectionCounter = 0;
+
+    @Autowired
+    private DataService dataService;
+
     @SneakyThrows
-    public static void runDetection(VideoCapture capture, String path) {
+    public void runDetection(VideoCapture capture, String path, Collection<AreaDataDTO> selectedAreas,String id) {
         Mat frame = new Mat();
         double width = capture.get(Videoio.CAP_PROP_FRAME_WIDTH);
         double height = capture.get(Videoio.CAP_PROP_FRAME_HEIGHT);
@@ -43,19 +62,21 @@ public class ObjectDetectionService {
         jframe.setVisible(true);
         while (true) {
             if (capture.read(frame)) {
-                ImageIcon image = new ImageIcon(Mat2BufferedImage(onCameraFrame(frame, net, maxThreshold, confThreshold, detectedObjectsNames)));
+                ImageIcon image = new ImageIcon(Mat2BufferedImage(onCameraFrame(frame, net, maxThreshold, confThreshold, detectedObjectsNames, selectedAreas, id)));
                 vidPanel.setIcon(image);
                 vidPanel.repaint();
             } else {
                 jframe.dispose();
                 new File(path).delete();
+                detectionCounter = 0;
+                detectionList.clear();
                 break;
             }
         }
     }
 
     @SneakyThrows
-    private static List<String> loadCocoNamesFromFile(File cocoNamesFile) {
+    private List<String> loadCocoNamesFromFile(File cocoNamesFile) {
         List<String> detectedObjectsFile = new ArrayList<>();
         Scanner myReader = new Scanner(cocoNamesFile);
         while (myReader.hasNextLine()) {
@@ -66,7 +87,7 @@ public class ObjectDetectionService {
         return detectedObjectsFile;
     }
 
-    private static BufferedImage Mat2BufferedImage(Mat m) {
+    private BufferedImage Mat2BufferedImage(Mat m) {
         int type = BufferedImage.TYPE_BYTE_GRAY;
         if (m.channels() > 1) {
             type = BufferedImage.TYPE_3BYTE_BGR;
@@ -80,14 +101,15 @@ public class ObjectDetectionService {
         return image;
     }
 
-    private static List<String> getOutBlobNames() {
+    private List<String> getOutBlobNames() {
         List<String> outBlobNames = new ArrayList<>();
         outBlobNames.add(0, "yolo_16");
         outBlobNames.add(1, "yolo_23");
         return outBlobNames;
     }
 
-    private static Mat onCameraFrame(Mat frame, Net net, float maxThreshold, float confidenceThreshold, List<String> cocoNames) {
+    @SneakyThrows
+    private Mat onCameraFrame(Mat frame, Net net, float maxThreshold, float confidenceThreshold, List<String> cocoNames, Collection<AreaDataDTO> selectedAreas, String id) {
         List<Mat> results = new ArrayList<>(2);
         List<String> outBlobNames = getOutBlobNames();
         List<Integer> clsIds = new ArrayList<>();
@@ -97,41 +119,17 @@ public class ObjectDetectionService {
         Mat blob = Dnn.blobFromImage(frame, 1 / 255f, new Size(416, 416), new Scalar(0, 0, 0), false, false);
         net.setInput(blob);
         net.forward(results, outBlobNames);
-        // <========================>
-        // from AreaDTO
-        List<Point> list = new ArrayList<>();
-        list.add(new Point(208, 71));
-        list.add(new Point(421, 161));
-        list.add(new Point(332, 52));
-        list.add(new Point(369, 250));
-        list.add(new Point(421, 161));
-
-        List<Point> list2 = new ArrayList<>();
-        list2.add(new Point(50, 50));
-        list2.add(new Point(50, 150));
-        list2.add(new Point(520, 369));
-        list2.add(new Point(150, 50));
-
-        // converting to MatOfPoint
-        MatOfPoint matOfPoint1 = new MatOfPoint();
-        matOfPoint1.fromList(list);
-
-        MatOfPoint matOfPoint2 = new MatOfPoint();
-        matOfPoint2.fromList(list2);
-
-        // adding areas to Frame
         List<MatOfPoint> points = new ArrayList<>();
-        points.add(matOfPoint1);
-        points.add(matOfPoint2);
-
-        // Displaying area
+        selectedAreas.forEach(areaDataDTO -> {
+            MatOfPoint matOfPoint = new MatOfPoint();
+            matOfPoint.fromList(areaDataDTO.getPointsList());
+            points.add(matOfPoint);
+        });
         double opacity = 0.6;
         Mat overlay = new Mat();
         frame.copyTo(overlay);
         Imgproc.fillPoly(frame, points, new Scalar(255, 0, 0, 0), Imgproc.LINE_8);
         Core.addWeighted(overlay, opacity, frame, 1 - opacity, 0, frame);
-
-        // <========================>
         for (Mat level : results) {
             for (int i = 0; i < level.rows(); ++i) {
                 Mat row = level.row(i);
@@ -164,8 +162,28 @@ public class ObjectDetectionService {
                 Rect2d box = boxesForDNN[idx];
                 int classID = clsIds.get(idx);
                 for (MatOfPoint point : points) {
-                    if (polygonsContainsWithDetections(point, box)) {
-                        System.out.println(cocoNames.get(classID));
+                    String className = cocoNames.get(classID);
+                    for (Point point1: point.toList()) {
+                        if (checkIfDetectionIsValid(className) && box.contains(point1)) {
+                            detectionList.add(1);
+                        } else {
+                            detectionList.add(0);
+                        }
+                    }
+                    detectionCounter++;
+                    if (detectionCounter == 40) {
+                        if (point.toList().size() != 0) {
+                            int sum = detectionList.stream().mapToInt(Integer::intValue).sum() / point.toList().size();
+                            if (sum / 40f > 0.6) {
+                                val levelCrossingAddress = this.dataService.levelCrossingIps.get(UUID.fromString(id));
+                                if (levelCrossingAddress != null) {
+                                    ChangeMotorDirectionDTO changeMotorDirectionDTO = new ChangeMotorDirectionDTO(id, 1);
+                                    dataService.controlMotors(changeMotorDirectionDTO);
+                                    System.out.printf("Object detected %s with confidence %s / 40.", className, sum);
+                                }
+
+                            }
+                        }
                     }
                 }
                 Imgproc.putText(frame, cocoNames.get(classID), box.tl(), Imgproc.FONT_HERSHEY_COMPLEX, 2, new Scalar(255, 255, 0), 2);
@@ -173,6 +191,15 @@ public class ObjectDetectionService {
             }
         }
         return frame;
+    }
+
+    public static boolean checkIfDetectionIsValid(String className) {
+        return className.equals("car")
+                || className.equals("motorbike")
+                || className.equals("aeroplane")
+                || className.equals("bus")
+                || className.equals("truck")
+                || className.equals("boat");
     }
 
     public static boolean polygonsContainsWithDetections(MatOfPoint src1, Rect2d src2) {
@@ -185,9 +212,6 @@ public class ObjectDetectionService {
         if (Imgproc.pointPolygonTest(new MatOfPoint2f(src1.toArray()), new Point(src2.br().x, src2.tl().y), true) > 0) {
             return true;
         }
-        if (Imgproc.pointPolygonTest(new MatOfPoint2f(src1.toArray()), new Point(src2.tl().x, src2.br().y), true) > 0) {
-            return true;
-        }
-        return false;
+        return Imgproc.pointPolygonTest(new MatOfPoint2f(src1.toArray()), new Point(src2.tl().x, src2.br().y), true) > 0;
     }
 }
