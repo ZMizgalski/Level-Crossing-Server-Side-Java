@@ -2,7 +2,6 @@ package trainlookerserverside.serverside.objectdetection;
 
 import lombok.SneakyThrows;
 import lombok.val;
-import org.apache.commons.io.IOUtils;
 import org.opencv.core.*;
 import org.opencv.dnn.Dnn;
 import org.opencv.dnn.Net;
@@ -12,13 +11,7 @@ import org.opencv.videoio.VideoCapture;
 import org.opencv.videoio.Videoio;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.Resource;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 import trainlookerserverside.serverside.DTOS.AreaDataDTO;
 import trainlookerserverside.serverside.DTOS.ChangeMotorDirectionDTO;
 import trainlookerserverside.serverside.DataService;
@@ -27,9 +20,6 @@ import javax.swing.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.io.File;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 @Service
@@ -41,8 +31,30 @@ public class ObjectDetectionService {
     @Autowired
     private DataService dataService;
 
+    public static boolean checkIfDetectionIsValid(String className) {
+        return className.equals("car")
+                || className.equals("motorbike")
+                || className.equals("aeroplane")
+                || className.equals("bus")
+                || className.equals("truck")
+                || className.equals("boat");
+    }
+
+    public static boolean polygonsContainsWithDetections(MatOfPoint src1, Rect2d src2) {
+        if (Imgproc.pointPolygonTest(new MatOfPoint2f(src1.toArray()), new Point(src2.tl().x, src2.tl().y), true) > 0) {
+            return true;
+        }
+        if (Imgproc.pointPolygonTest(new MatOfPoint2f(src1.toArray()), new Point(src2.br().x, src2.br().y), true) > 0) {
+            return true;
+        }
+        if (Imgproc.pointPolygonTest(new MatOfPoint2f(src1.toArray()), new Point(src2.br().x, src2.tl().y), true) > 0) {
+            return true;
+        }
+        return Imgproc.pointPolygonTest(new MatOfPoint2f(src1.toArray()), new Point(src2.tl().x, src2.br().y), true) > 0;
+    }
+
     @SneakyThrows
-    public void runDetection(VideoCapture capture, String path, Collection<AreaDataDTO> selectedAreas,String id) {
+    public void runDetection(VideoCapture capture, String path, Collection<AreaDataDTO> selectedAreas, String id) {
         Mat frame = new Mat();
         double width = capture.get(Videoio.CAP_PROP_FRAME_WIDTH);
         double height = capture.get(Videoio.CAP_PROP_FRAME_HEIGHT);
@@ -163,17 +175,21 @@ public class ObjectDetectionService {
                 int classID = clsIds.get(idx);
                 for (MatOfPoint point : points) {
                     String className = cocoNames.get(classID);
-                    for (Point point1: point.toList()) {
+                    for (Point point1 : point.toList()) {
+                        System.out.println(checkIfDetectionIsValid(className));
                         if (checkIfDetectionIsValid(className) && box.contains(point1)) {
+                            System.out.println(detectionList);
                             detectionList.add(1);
                         } else {
                             detectionList.add(0);
                         }
                     }
                     detectionCounter++;
-                    if (detectionCounter == 40) {
+                    if (detectionCounter == 50) {
                         if (point.toList().size() != 0) {
                             int sum = detectionList.stream().mapToInt(Integer::intValue).sum() / point.toList().size();
+                            System.out.println(sum);
+                            System.out.println(sum / 40f > 0.6);
                             if (sum / 40f > 0.6) {
                                 val levelCrossingAddress = this.dataService.levelCrossingIps.get(UUID.fromString(id));
                                 if (levelCrossingAddress != null) {
@@ -191,27 +207,5 @@ public class ObjectDetectionService {
             }
         }
         return frame;
-    }
-
-    public static boolean checkIfDetectionIsValid(String className) {
-        return className.equals("car")
-                || className.equals("motorbike")
-                || className.equals("aeroplane")
-                || className.equals("bus")
-                || className.equals("truck")
-                || className.equals("boat");
-    }
-
-    public static boolean polygonsContainsWithDetections(MatOfPoint src1, Rect2d src2) {
-        if (Imgproc.pointPolygonTest(new MatOfPoint2f(src1.toArray()), new Point(src2.tl().x, src2.tl().y), true) > 0) {
-            return true;
-        }
-        if (Imgproc.pointPolygonTest(new MatOfPoint2f(src1.toArray()), new Point(src2.br().x, src2.br().y), true) > 0) {
-            return true;
-        }
-        if (Imgproc.pointPolygonTest(new MatOfPoint2f(src1.toArray()), new Point(src2.br().x, src2.tl().y), true) > 0) {
-            return true;
-        }
-        return Imgproc.pointPolygonTest(new MatOfPoint2f(src1.toArray()), new Point(src2.tl().x, src2.br().y), true) > 0;
     }
 }
